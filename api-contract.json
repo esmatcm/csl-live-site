@@ -1,0 +1,10 @@
+{
+  "required_root": ["meta", "matches", "standings"],
+  "meta_fields": ["daemon", "generated_at", "mode"],
+  "match_fields": [
+    "id", "code", "league", "home", "away", "homeLogo", "awayLogo",
+    "score", "status", "statusRaw", "time", "date"
+  ],
+  "i18n_fields": ["en", "tc", "sc"],
+  "standings_fields": ["pos", "team", "played", "points", "crest"]
+}

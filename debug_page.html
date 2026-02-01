@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h1>DATA DEBUG</h1>
+<div id="output">Loading data.json...</div>
+<script>
+fetch('data.json?t=' + Date.now())
+  .then(response => {
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return response.text();
+  })
+  .then(text => {
+      document.getElementById('output').innerText = "Data Length: " + text.length + "\n\nPreview:\n" + text.substring(0, 500);
+  })
+  .catch(err => {
+      document.getElementById('output').innerText = "FETCH FAILED: " + err;
+  });
+</script>
+</body>
+</html>

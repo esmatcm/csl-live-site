@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CSL PRO QUANTUM</title>
+    <style>
+        :root { --bg: #05070a; --surface: #0f1218; --surface-light: #1a1f2e; --primary: #00f2ea; --secondary: #ff0055; --text: #e2e8f0; --text-dim: #94a3b8; --border: rgba(255, 255, 255, 0.1); --glass: rgba(15, 18, 24, 0.7); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding-bottom: 80px; overflow-x: hidden; }
+        .nav { background: var(--glass); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 15px 20px; position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; background: linear-gradient(90deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .lang-switch { font-size: 12px; background: var(--surface-light); padding: 4px; border-radius: 20px; display: flex; border: 1px solid var(--border); }
+        .lang-btn { padding: 4px 10px; border-radius: 16px; cursor: pointer; transition: 0.3s; color: var(--text-dim); }
+        .lang-btn.active { background: var(--primary); color: #000; font-weight: bold; }
+        .search-container { padding: 15px 20px 0; max-width: 1000px; margin: 0 auto; }
+        .search-box { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: var(--text); font-size: 14px; outline: none; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 10px 15px; }
+        .tabs { display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding: 0 15px; }
+        .tab-item { padding: 15px 5px; cursor: pointer; color: var(--text-dim); position: relative; }
+        .tab-item.active { color: var(--primary); font-weight: bold; }
+        .tab-item.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--primary); }
+        
+        .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); } }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; position: relative; cursor: pointer; }
+        .card.live { border-color: rgba(0, 242, 234, 0.5); background: linear-gradient(145deg, rgba(0, 242, 234, 0.05), var(--surface)); }
+        .card-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
+        .status-badge { background: var(--surface-light); padding: 2px 8px; border-radius: 6px; color: var(--text); }
+        .card.live .status-badge { background: var(--primary); color: #000; font-weight: 800; animation: pulse 2s infinite; }
+        .match-row { display: flex; align-items: center; justify-content: space-between; }
+        .team { flex: 1; display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; }
+        .team.away { justify-content: flex-end; }
+        .team-logo { width: 32px; height: 32px; object-fit: contain; }
+        .score { font-size: 24px; font-weight: 700; color: var(--text); font-family: monospace; }
+        .card.live .score { color: var(--primary); }
+        .loading { text-align: center; padding: 50px; color: var(--text-dim); }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 2000; justify-content: center; align-items: center; }
+        .modal.open { display: flex; }
+        .modal-card { background: var(--surface); width: 90%; max-width: 450px; border-radius: 24px; border: 1px solid var(--border); padding: 25px; max-height: 80vh; overflow-y: auto; }
+        .modal-section { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+        .section-title { font-size: 11px; font-weight: bold; color: var(--primary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+        .event-row { display: flex; margin-bottom: 10px; font-size: 14px; align-items: center; }
+        .event-time { color: var(--primary); font-weight: bold; width: 35px; }
+        .event-icon { margin-right: 10px; font-size: 16px; }
+        .meta-info { font-size: 11px; color: var(--text-dim); background: var(--surface-light); padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .stream-btn { display: block; padding: 12px; margin-bottom: 8px; background: linear-gradient(90deg, rgba(0,242,234,0.1), transparent); border-left: 3px solid var(--primary); color: var(--text); text-decoration: none; font-size: 13px; font-weight: bold; transition: 0.2s; }
+        .stream-btn:hover { background: rgba(0,242,234,0.2); padding-left: 15px; }
+
+        /* Standings */
+        .tab-bar { overflow-x: auto; white-space: nowrap; margin-bottom: 15px; padding-bottom: 5px; }
+        .tab-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 5px 12px; border-radius: 20px; margin-right: 5px; cursor: pointer; }
+        .tab-btn.active { background: var(--primary); color: #000; border-color: var(--primary); font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        td, th { padding: 10px; text-align: center; border-bottom: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+<div class="nav">
+    <div class="logo">CSL<span style="color:var(--primary)">.AI</span></div>
+    <div class="lang-switch">
+        <div class="lang-btn" onclick="setLang('sc')" id="btn-sc">简</div>
+        <div class="lang-btn" onclick="setLang('tc')" id="btn-tc">繁</div>
+        <div class="lang-btn" onclick="setLang('en')" id="btn-en">EN</div>
+    </div>
+</div>
+<div class="search-container"><input type="text" class="search-box" id="searchInput" placeholder="Search..." onkeyup="filterData()"></div>
+<div class="container">
+    <div class="tabs">
+        <div class="tab-item active" onclick="switchView('live')" id="tab-live">LIVE</div>
+        <div class="tab-item" onclick="switchView('upcoming')" id="tab-up">UPCOMING</div>
+        <div class="tab-item" onclick="switchView('standings')" id="tab-std">STANDINGS</div>
+    </div>
+    <div id="content-area"><div class="loading">CONNECTING...</div></div>
+</div>
+
+<div class="modal" id="matchModal" onclick="closeModal(event)">
+    <div class="modal-card">
+        <div style="text-align:center; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;">
+            <div id="m-league" style="color:#94a3b8; font-size:12px; letter-spacing: 1px;"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;">
+                <div style="flex:1"><img id="m-home-logo" width="50"><div id="m-home" style="margin-top:5px; font-weight:bold;"></div></div>
+                <div id="m-score" style="font-size:40px; font-weight:900; color:var(--primary); font-family: monospace;"></div>
+                <div style="flex:1"><img id="m-away-logo" width="50"><div id="m-away" style="margin-top:5px; font-weight:bold;"></div></div>
+            </div>
+            <div id="m-status" style="margin-top:5px; color:var(--text-dim); font-size: 12px;"></div>
+        </div>
+        <div id="m-body"></div>
+    </div>
+</div>
+
+<script>
+    let CURRENT_LANG = localStorage.getItem('lang') || 'sc';
+    let RAW_DATA = [];
+    let RAW_STANDINGS = {};
+    let CURRENT_VIEW = 'live';
+
+    const UI_TEXT = {
+        'sc': { 'live': '正在进行', 'upcoming': '即将开赛', 'standings': '积分榜', 'search': '搜索...', 'no_data': '暂无数据' },
+        'tc': { 'live': '正在進行', 'upcoming': '即將開賽', 'standings': '積分榜', 'search': '搜尋...', 'no_data': '暫無數據' },
+        'en': { 'live': 'LIVE', 'upcoming': 'UPCOMING', 'standings': 'STANDINGS', 'search': 'Search...', 'no_data': 'NO DATA' }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => { updateLangUI(); fetchData(); setInterval(fetchData, 30000); });
+
+    async function fetchData() {
+        try {
+            const res = await fetch('data.json?t=' + new Date().getTime());
+            if (!res.ok) throw new Error("Network");
+            const json = await res.json();
+            RAW_DATA = json.matches || [];
+            RAW_STANDINGS = json.standings || {};
+            render();
+        } catch (e) { document.getElementById('content-area').innerHTML = '<div class="loading">DATA SYNC ERROR</div>'; }
+    }
+
+    function render() {
+        const t = UI_TEXT[CURRENT_LANG];
+        document.getElementById('tab-live').innerText = t.live;
+        document.getElementById('tab-up').innerText = t.upcoming;
+        document.getElementById('tab-std').innerText = t.standings;
+        document.getElementById('searchInput').placeholder = t.search;
+        const container = document.getElementById('content-area');
+        container.innerHTML = '';
+        
+        if (CURRENT_VIEW === 'standings') {
+            if (!RAW_STANDINGS || Object.keys(RAW_STANDINGS).length === 0) {
+                 container.innerHTML = '<div class="loading">No Standings Data</div>';
+                 return;
+            }
+            const stdTabs = document.createElement('div');
+            stdTabs.className = 'tab-bar';
+            const stdContent = document.createElement('div');
+            let first = true;
+            for (const [code, rows] of Object.entries(RAW_STANDINGS)) {
+                const lgMap = {'PL': 'Premier League', 'PD': 'La Liga', 'SA': 'Serie A', 'BL1': 'Bundesliga', 'FL1': 'Ligue 1'};
+                const lgName = lgMap[code] || code;
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${first ? 'active' : ''}`;
+                btn.innerText = lgName;
+                btn.onclick = (e) => {
+                    stdTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    stdContent.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                    document.getElementById(`st-${code}`).style.display = 'block';
+                };
+                stdTabs.appendChild(btn);
+                const tableDiv = document.createElement('div');
+                tableDiv.id = `st-${code}`;
+                tableDiv.className = 'tab-content';
+                tableDiv.style.display = first ? 'block' : 'none';
+                let html = '<table><thead><tr><th>#</th><th style="text-align:left">TEAM</th><th>PL</th><th>PTS</th></tr></thead><tbody>';
+                rows.forEach(r => {
+                    const teamName = r.team[CURRENT_LANG] || r.team.en;
+                    html += `<tr><td>${r.pos}</td><td style="text-align:left"><img src="${r.crest}" width="20" style="vertical-align:middle;margin-right:5px"> ${teamName}</td><td>${r.played}</td><td><strong>${r.points}</strong></td></tr>`;
+                });
+                html += '</tbody></table>';
+                tableDiv.innerHTML = html;
+                stdContent.appendChild(tableDiv);
+                first = false;
+            }
+            container.appendChild(stdTabs);
+            container.appendChild(stdContent);
+            return;
+        }
+
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        let filtered = RAW_DATA.filter(m => {
+            let viewMatch = false;
+            if (CURRENT_VIEW === 'live' && ['IN_PLAY', 'PAUSED', 'HT'].includes(m.statusRaw)) viewMatch = true;
+            else if (CURRENT_VIEW === 'upcoming' && ['TIMED', 'SCHEDULED'].includes(m.statusRaw)) viewMatch = true;
+            if (!viewMatch) return false;
+            if (query) {
+                const h = (m.home && (m.home[CURRENT_LANG] || m.home.en)) || "";
+                const a = (m.away && (m.away[CURRENT_LANG] || m.away.en)) || "";
+                return (h+a).toLowerCase().includes(query);
+            }
+            return true;
+        });
+
+        // Fallback: If LIVE is empty, show UPCOMING (Sorted by time)
+        if (CURRENT_VIEW === 'live' && filtered.length === 0 && !query) {
+             container.innerHTML += `<div style="text-align:center; color:var(--text-dim); margin-bottom:20px; font-size:12px;">${t.no_data} - 近期賽事</div>`;
+             // Show upcoming
+             filtered = RAW_DATA.filter(m => ['TIMED', 'SCHEDULED'].includes(m.statusRaw));
+        }
+
+        if (filtered.length === 0) { container.innerHTML = `<div class="loading">${t.no_data}</div>`; return; }
+
+        // Sort by Priority then Time
+        filtered.sort((a, b) => {
+             const pa = a.priority || 99;
+             const pb = b.priority || 99;
+             if (pa !== pb) return pa - pb;
+             return a.time.localeCompare(b.time);
+        });
+
+        const displayList = filtered.slice(0, 20); // Pagination
+
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+
+        displayList.forEach(m => {
+            const card = document.createElement('div');
+            card.className = `card ${['IN_PLAY', 'PAUSED', 'HT'].includes(m.statusRaw) ? 'live' : ''}`;
+            card.onclick = () => openModal(m);
+            const homeName = m.home ? (m.home[CURRENT_LANG] || m.home.en) : "Unknown";
+            const awayName = m.away ? (m.away[CURRENT_LANG] || m.away.en) : "Unknown";
+            const lgName = m.league ? (m.league[CURRENT_LANG] || m.league.en) : "";
+            const statusText = m.status ? (m.status[CURRENT_LANG] || m.status.en) : "";
+
+            card.innerHTML = `
+                <div class="card-header"><span>${lgName}</span><span class="status-badge">${statusText}</span></div>
+                <div class="match-row"><div class="team"><img src="${m.homeLogo}" class="team-logo"> ${homeName}</div><div class="score">${m.score}</div><div class="team away">${awayName} <img src="${m.awayLogo}" class="team-logo"></div></div>
+            `;
+            grid.appendChild(card);
+        });
+        container.appendChild(grid);
+        
+        if (filtered.length > 20) {
+            const loadMore = document.createElement('div');
+            loadMore.style.textAlign = 'center';
+            loadMore.style.marginTop = '20px';
+            loadMore.style.color = 'var(--text-dim)';
+            loadMore.style.fontSize = '12px';
+            loadMore.innerText = `Displaying 20 of ${filtered.length} matches. Use Search to find more.`;
+            container.appendChild(loadMore);
+        }
+    }
+    
+    // ... (setLang, switchView, openModal functions same as before) ...
+    function setLang(lang) { CURRENT_LANG = lang; localStorage.setItem('lang', lang); updateLangUI(); render(); }
+    function updateLangUI() { document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active')); document.getElementById(`btn-${CURRENT_LANG}`).classList.add('active'); }
+    function switchView(view) { CURRENT_VIEW = view; document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); event.target.classList.add('active'); render(); }
+    function filterData() { render(); }
+    function openModal(m) {
+        const modal = document.getElementById('matchModal');
+        const homeName = m.home ? (m.home[CURRENT_LANG] || m.home.en) : "Unknown";
+        const awayName = m.away ? (m.away[CURRENT_LANG] || m.away.en) : "Unknown";
+        document.getElementById('m-league').innerText = m.league ? (m.league[CURRENT_LANG] || m.league.en) : "";
+        document.getElementById('m-home').innerText = homeName;
+        document.getElementById('m-away').innerText = awayName;
+        document.getElementById('m-home-logo').src = m.homeLogo;
+        document.getElementById('m-away-logo').src = m.awayLogo;
+        document.getElementById('m-score').innerText = m.score;
+        document.getElementById('m-status').innerText = `${m.date} ${m.time}`;
+        
+        const body = document.getElementById('m-body');
+        body.innerHTML = '';
+
+        if ((m.referees && m.referees.length > 0) || (m.coach && m.coach.home)) {
+            let metaHtml = '<div class="meta-info">';
+            if(m.referees && m.referees.length > 0) metaHtml += `<div>⚖️ ${m.referees[0]}</div>`;
+            if(m.coach && m.coach.home) metaHtml += `<div>👔 ${m.coach.home}</div>`;
+            metaHtml += '</div>';
+            body.innerHTML += metaHtml;
+        }
+
+        if (m.events && m.events.length > 0) {
+            const evSection = document.createElement('div');
+            evSection.className = 'modal-section';
+            evSection.innerHTML = '<div class="section-title">Match Events</div>';
+            m.events.forEach(ev => {
+                const row = document.createElement('div');
+                row.className = 'event-row';
+                let icon = '⚽';
+                if(ev.type === 'card') icon = ev.card === 'red' ? '🟥' : '🟨';
+                const evText = ev.text[CURRENT_LANG] || ev.text.en;
+                row.innerHTML = `<span class="event-time">${ev.minute}'</span> <span class="event-icon">${icon}</span> ${evText}`;
+                evSection.appendChild(row);
+            });
+            body.appendChild(evSection);
+        }
+
+        if (m.streams && m.streams.length > 0) {
+            const stSection = document.createElement('div');
+            stSection.className = 'modal-section';
+            stSection.innerHTML = '<div class="section-title">Live Streams</div>';
+            m.streams.forEach(s => {
+                const btn = document.createElement('a');
+                btn.className = 'stream-btn';
+                btn.href = s.url;
+                btn.target = '_blank';
+                // Stream Name I18N
+                let sName = s.name;
+                if(typeof s.name === 'object') sName = s.name[CURRENT_LANG] || s.name.en;
+                btn.innerHTML = `📺 ${sName}`;
+                stSection.appendChild(btn);
+            });
+            body.appendChild(stSection);
+        }
+
+        if (m.lineups && m.lineups.home.length > 0) {
+            const lnSection = document.createElement('div');
+            lnSection.className = 'modal-section';
+            lnSection.innerHTML = '<div class="section-title">Lineups</div>';
+            lnSection.innerHTML += `<div style="font-size:11px; margin-bottom:5px; color:var(--text-dim)"><strong style="color:var(--text)">${homeName}:</strong> ${m.lineups.home.join(', ')}</div>`;
+            lnSection.innerHTML += `<div style="font-size:11px; color:var(--text-dim)"><strong style="color:var(--text)">${awayName}:</strong> ${m.lineups.away.join(', ')}</div>`;
+            body.appendChild(lnSection);
+        }
+        
+        modal.classList.add('open');
+    }
+    function closeModal(e) { if (e.target.id === 'matchModal') document.getElementById('matchModal').classList.remove('open'); }
+</script>
+</body>
+</html>

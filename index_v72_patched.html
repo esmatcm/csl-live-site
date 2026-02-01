@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CSL PRO v72.5</title>
+    <style>
+        :root { --bg: #05070a; --surface: #0f1218; --primary: #00f2ea; --text: #e2e8f0; --dim: #94a3b8; --border: rgba(255,255,255,0.1); }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 80px; }
+        .nav { padding: 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15,18,24,0.8); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 99; }
+        .logo { font-weight: 900; font-size: 18px; color: #fff; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
+        .status-dot.ok { background: var(--primary); box-shadow: 0 0 5px var(--primary); }
+        .status-dot.err { background: #ff0055; }
+        
+        .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 15px; }
+        .tab { flex: 1; text-align: center; padding: 15px; color: var(--dim); cursor: pointer; font-size: 14px; }
+        .tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); font-weight: bold; }
+        
+        .container { padding: 10px; max-width: 800px; margin: 0 auto; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 10px; position: relative; }
+        .card.live { border-color: rgba(0, 242, 234, 0.3); background: linear-gradient(to right, rgba(0,242,234,0.05), transparent); }
+        
+        .match-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-bottom: 10px; }
+        .match-body { display: flex; align-items: center; justify-content: space-between; }
+        .team { flex: 1; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+        .team.away { justify-content: flex-end; }
+        .team img { width: 24px; height: 24px; object-fit: contain; }
+        .score { font-size: 24px; font-weight: bold; font-family: monospace; color: var(--text); }
+        .card.live .score { color: var(--primary); }
+        
+        .loading { text-align: center; padding: 40px; color: var(--dim); font-size: 14px; }
+        .error { color: #ff0055; padding: 20px; text-align: center; border: 1px solid #ff0055; border-radius: 8px; margin: 20px; font-size: 12px; background: rgba(255,0,85,0.1); }
+        
+        /* Standings */
+        .std-nav { overflow-x: auto; white-space: nowrap; padding-bottom: 10px; margin-bottom: 10px; }
+        .std-btn { background: transparent; border: 1px solid var(--border); color: var(--dim); padding: 5px 15px; border-radius: 20px; margin-right: 5px; cursor: pointer; }
+        .std-btn.active { background: var(--primary); color: #000; border-color: var(--primary); font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; color: var(--dim); padding: 8px; border-bottom: 1px solid var(--border); }
+        td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
+        .pos { width: 30px; text-align: center; color: var(--dim); }
+        .pts { font-weight: bold; text-align: right; }
+    </style>
+</head>
+<body>
+
+<div class="nav">
+    <div class="logo">CSL<span style="color:var(--primary)">.AI</span> <span style="font-size:10px;opacity:0.5">v72.5</span></div>
+    <div class="status-dot" id="dot"></div>
+</div>
+
+<div class="tabs">
+    <div class="tab active" onclick="switchTab('live')" id="t-live">LIVE</div>
+    <div class="tab" onclick="switchTab('up')" id="t-up">UPCOMING</div>
+    <div class="tab" onclick="switchTab('std')" id="t-std">STANDINGS</div>
+</div>
+
+<div id="main" class="container">
+    <div class="loading">CONNECTING TO LIVE DATA...</div>
+</div>
+
+<script>
+    let DATA = { matches: [], standings: {} };
+    let VIEW = 'live';
+    let LANG = 'sc'; // Default SC
+
+    // Safe Name Getter (handles string or object)
+    const T = (obj) => {
+        if (!obj) return "";
+        if (typeof obj === 'string') return obj;
+        return obj[LANG] || obj['en'] || "";
+    };
+
+    window.onerror = function(msg, url, line) {
+        document.getElementById('main').innerHTML = `<div class="error"><b>CLIENT ERROR</b><br>${msg}<br>Line: ${line}</div>`;
+        document.getElementById('dot').className = 'status-dot err';
+    };
+
+    async function fetchUpdate() {
+        try {
+            const res = await fetch('data.json?t=' + Date.now());
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const text = await res.text();
+            
+            try {
+                DATA = JSON.parse(text);
+                document.getElementById('dot').className = 'status-dot ok';
+                render();
+            } catch (jsonErr) {
+                throw new Error("INVALID JSON DATA");
+            }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('dot').className = 'status-dot err';
+            // Only show full error if screen is empty
+            if(document.getElementById('main').querySelector('.loading')) {
+                document.getElementById('main').innerHTML = `<div class="error"><b>CONNECTION FAILED</b><br>${e.message}<br>Retrying...</div>`;
+            }
+        }
+    }
+
+    function switchTab(v) {
+        VIEW = v;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('t-'+v).classList.add('active');
+        render();
+    }
+
+    function render() {
+        const container = document.getElementById('main');
+        container.innerHTML = '';
+
+        // STANDINGS VIEW
+        if (VIEW === 'std') {
+            if (!DATA.standings || Object.keys(DATA.standings).length === 0) {
+                container.innerHTML = '<div class="loading">NO STANDINGS DATA</div>';
+                return;
+            }
+            
+            // League Tabs
+            const nav = document.createElement('div');
+            nav.className = 'std-nav';
+            const content = document.createElement('div');
+            
+            let first = true;
+            for (const [code, rows] of Object.entries(DATA.standings)) {
+                const btn = document.createElement('button');
+                btn.className = `std-btn ${first ? 'active' : ''}`;
+                btn.innerText = code;
+                btn.onclick = (e) => {
+                    document.querySelectorAll('.std-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    document.querySelectorAll('.std-tbl').forEach(d => d.style.display = 'none');
+                    document.getElementById('st-'+code).style.display = 'block';
+                };
+                nav.appendChild(btn);
+
+                const div = document.createElement('div');
+                div.id = 'st-'+code;
+                div.className = 'std-tbl';
+                div.style.display = first ? 'block' : 'none';
+                
+                let html = '<table><thead><tr><th>#</th><th>Team</th><th>PL</th><th style="text-align:right">PTS</th></tr></thead><tbody>';
+                rows.slice(0, 20).forEach(r => {
+                    html += `<tr><td class="pos">${r.pos}</td><td><div style="display:flex;align-items:center;gap:8px"><img src="${r.crest}" width="20">${T(r.team)}</div></td><td>${r.played}</td><td class="pts">${r.points}</td></tr>`;
+                });
+                html += '</tbody></table>';
+                div.innerHTML = html;
+                content.appendChild(div);
+                
+                first = false;
+            }
+            container.appendChild(nav);
+            container.appendChild(content);
+            return;
+        }
+
+        // MATCHES VIEW
+        const matches = DATA.matches || [];
+        if (matches.length === 0) {
+            container.innerHTML = '<div class="loading">NO MATCHES FOUND</div>';
+            return;
+        }
+
+        const filtered = matches.filter(m => {
+            const s = m.statusRaw;
+            if (VIEW === 'live') return ['IN_PLAY', 'PAUSED', 'HT', 'LIVE'].includes(s);
+            if (VIEW === 'up') return ['TIMED', 'SCHEDULED', 'UPCOMING'].includes(s);
+            return false;
+        });
+        
+        // Always show System Restore msg if present
+        if(matches.length === 1 && matches[0].league && T(matches[0].league).includes("System")) {
+             // Pass through
+        } else if (filtered.length === 0 && VIEW === 'live') {
+             container.innerHTML = '<div class="loading">NO LIVE MATCHES<br><span style="font-size:12px;opacity:0.7">Check Upcoming</span></div>';
+             return;
+        }
+
+        (filtered.length > 0 ? filtered : matches).forEach(m => {
+            // If viewing LIVE but list is empty, don't show non-live matches (unless system msg)
+            if(VIEW === 'live' && filtered.length === 0 && !T(m.league).includes("System")) return;
+
+            const el = document.createElement('div');
+            el.className = `card ${['IN_PLAY','LIVE'].includes(m.statusRaw) ? 'live' : ''}`;
+            el.innerHTML = `
+                <div class="match-header">
+                    <span>${T(m.league)}</span>
+                    <span style="color:${el.className.includes('live')?'var(--primary)':'inherit'}">${T(m.status)}</span>
+                </div>
+                <div class="match-body">
+                    <div class="team"><img src="${m.homeLogo}" onerror="this.style.display='none'">${T(m.home)}</div>
+                    <div class="score">${m.score}</div>
+                    <div class="team away">${T(m.away)}<img src="${m.awayLogo}" onerror="this.style.display='none'"></div>
+                </div>
+            `;
+            container.appendChild(el);
+        });
+    }
+
+    fetchUpdate();
+    setInterval(fetchUpdate, 15000);
+</script>
+</body>
+</html>

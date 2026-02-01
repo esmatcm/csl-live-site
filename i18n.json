@@ -1,0 +1,48 @@
+{
+    "status": {
+        "IN_PLAY": "進行中",
+        "PAUSED": "中場休息",
+        "FINISHED": "已完賽",
+        "SCHEDULED": "未開賽",
+        "TIMED": "已排程",
+        "POSTPONED": "推遲",
+        "CANCELLED": "取消",
+        "SUSPENDED": "比賽中斷",
+        "DELAYED": "延時"
+    },
+    "stage": {
+        "REGULAR_SEASON": "例行賽",
+        "GROUP_STAGE": "小組賽",
+        "PLAYOFF": "季後賽",
+        "QUALIFYING": "資格賽",
+        "FINAL": "決賽"
+    },
+    "teams": {
+        "Liverpool FC": "利物浦",
+        "Manchester City FC": "曼城",
+        "Arsenal FC": "阿森納",
+        "Real Madrid CF": "皇家馬德里",
+        "FC Barcelona": "巴塞隆納",
+        "FC Bayern München": "拜仁慕尼黑",
+        "Bayer 04 Leverkusen": "勒沃庫森",
+        "Inter Milan": "國際米蘭",
+        "Aston Villa FC": "阿斯頓維拉",
+        "Tottenham Hotspur FC": "熱刺",
+        "Manchester United FC": "曼聯",
+        "Newcastle United FC": "紐卡斯爾聯",
+        "Chelsea FC": "切爾西",
+        "Girona FC": "赫羅納",
+        "Atlético de Madrid": "馬德里競技"
+    },
+    "ui": {
+        "live": "賽時",
+        "news": "新聞",
+        "results": "賽果",
+        "updating": "載入中...",
+        "no_data": "暫無資料",
+        "no_permission": "權限不足，請升級 API 方案",
+        "venue": "地點",
+        "round": "輪次",
+        "updated_at": "更新時間"
+    }
+}
