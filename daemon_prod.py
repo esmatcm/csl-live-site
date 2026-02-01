@@ -5,8 +5,8 @@ import hashlib
 import sys
 from datetime import datetime, timedelta
 
-# V58.7 I18N FINAL (Smart Matching + Expanded Dict)
-DAEMON_VERSION = "v58.7_i18n_final"
+# V58.8 THROTTLED STABLE (Rate Limit + Backoff)
+DAEMON_VERSION = "v58.8_throttled"
 BUILD_TIME = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 # REMOVED sys.stdout config
@@ -15,11 +15,43 @@ API_KEY = '735d0b4e485a431db7867a42b0dda855'
 BASE_URL = "https://api.football-data.org/v4"
 HEADERS = {'X-Auth-Token': API_KEY}
 
+# --- THROTTLING CONFIG ---
+REQUEST_INTERVAL = 2.0  # Seconds between requests
+MAX_RETRIES = 5
+BASE_BACKOFF = 2.0      # Seconds
+
+def safe_request(url):
+    retries = 0
+    while retries <= MAX_RETRIES:
+        try:
+            # 1. Throttling
+            time.sleep(REQUEST_INTERVAL)
+            
+            r = requests.get(url, headers=HEADERS, timeout=10)
+            
+            # 2. Backoff on 429
+            if r.status_code == 429:
+                wait = BASE_BACKOFF * (2 ** retries)
+                print(f"429 Too Many Requests. Waiting {wait}s...")
+                time.sleep(wait)
+                retries += 1
+                continue
+                
+            return r
+        except Exception as e:
+            print(f"Request Error: {e}")
+            retries += 1
+            time.sleep(BASE_BACKOFF)
+            
+    print("Max retries exceeded.")
+    return None
+
 BT_PANEL_URL = "http://74.48.191.162:8888"
 BT_API_KEY = "se5DF3esy9dV8if8cvThChs0wlp5yMRa"
 
 PATH_INDEX = "/www/wwwroot/hsapi.xyz/index.html"
 PATH_DATA = "/www/wwwroot/hsapi.xyz/data.json"
+PATH_HEALTH = "/www/wwwroot/hsapi.xyz/health.html"
 
 ALLOWED = ['PL', 'PD', 'SA', 'BL1', 'FL1', 'CL']
 LEAGUE_CONF = [
@@ -160,8 +192,8 @@ def push(content, path):
 
 def fetch_details(mid):
     try:
-        r = requests.get(f"{BASE_URL}/matches/{mid}", headers=HEADERS, timeout=5)
-        if r.status_code == 200: return r.json()
+        r = safe_request(f"{BASE_URL}/matches/{mid}")
+        if r and r.status_code == 200: return r.json()
     except: pass
     return None
 
@@ -169,8 +201,8 @@ def fetch_standings_slow():
     # print("Fetching Standings...")
     for code in ['PL', 'PD', 'SA', 'BL1', 'FL1']:
         try:
-            r = requests.get(f"{BASE_URL}/competitions/{code}/standings", headers=HEADERS, timeout=5)
-            if r.status_code == 200:
+            r = safe_request(f"{BASE_URL}/competitions/{code}/standings")
+            if r and r.status_code == 200:
                 table = []
                 for row in r.json()['standings'][0]['table'][:15]:
                     table.append({
@@ -555,6 +587,11 @@ def run():
     </html>
     """
     push(html, PATH_INDEX)
+    
+    # T-101 Health Check
+    try:
+        push("<!DOCTYPE html><html><body>OK</body></html>", PATH_HEALTH)
+    except: pass
 
 if __name__ == "__main__":
     # print("Prod Daemon Starting...")
