@@ -239,15 +239,16 @@ def generate_ai_summary(match):
             print(f"AI_INFO: endpoint={GEMINI_ENDPOINT}")
 
         prompt = (
-            "请用简体中文写一段完整的赛后分析（≤500字），可分2-4行。"
+            "请用简体中文写一段完整的赛后分析（≤1000字），可分3-5行。"
             "要求：说明结果形成的可能原因，语气专业克制，不编造不存在的数据；"
-            "必须完整包含双方队名与比分（例如 2-1），不得省略或截断。"
+            "必须完整包含双方队名与比分（例如 2-1），不得省略或截断；"
+            "最后加一句对双方下一场走势的简短评估（不保证准确）。"
             f"比赛：{match['home']['sc']} vs {match['away']['sc']}，比分 {match['score']}，"
             f"联赛 {match['league']['sc']}，时间 {match['date']} {match['time']}。"
         )
         body = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 800}
+            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1600}
         }
         r = requests.post(
             f"{GEMINI_ENDPOINT}?key={GEMINI_API_KEY}",
