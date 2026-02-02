@@ -381,6 +381,7 @@ def run():
         if meta2.get('job_id') != final_json['meta']['job_id']: raise Exception("Job ID Mismatch 2")
 
         # 3. SIGNAL (Debounced)
+        # NOTE: Always update remote data.json first, then update latest.json (Mission Control)
         global LAST_SIGNAL_VERSION
         current_signal_key = f"{DAEMON_VERSION}-{BUILD_TIME}"
         
