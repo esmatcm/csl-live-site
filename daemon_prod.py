@@ -208,6 +208,7 @@ def get_bt_token():
 
 def generate_ai_summary(match):
     if not GEMINI_API_KEY:
+        print("AI_WARN: GEMINI_API_KEY missing")
         return ""
     try:
         prompt = (
@@ -226,6 +227,7 @@ def generate_ai_summary(match):
             timeout=15
         )
         if r.status_code != 200:
+            print(f"AI_WARN: status={r.status_code} body={r.text[:200]}")
             return ""
         data = r.json()
         return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
