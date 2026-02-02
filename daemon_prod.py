@@ -239,15 +239,15 @@ def generate_ai_summary(match):
             print(f"AI_INFO: endpoint={GEMINI_ENDPOINT}")
 
         prompt = (
-            "请用简体中文写约80-120字的赛后分析，可分2-3行。"
+            "请用简体中文写一段完整的赛后分析（约80-140字）。"
             "要求：说明结果形成的可能原因，语气专业克制，不编造不存在的数据；"
-            "不得省略或截断比分与队名（保持完整，如 2-1）。"
+            "必须完整包含双方队名与比分（例如 2-1），不得省略或截断。"
             f"比赛：{match['home']['sc']} vs {match['away']['sc']}，比分 {match['score']}，"
             f"联赛 {match['league']['sc']}，时间 {match['date']} {match['time']}。"
         )
         body = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 220}
+            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 300}
         }
         r = requests.post(
             f"{GEMINI_ENDPOINT}?key={GEMINI_API_KEY}",
@@ -261,6 +261,22 @@ def generate_ai_summary(match):
         text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
         if not text:
             print(f"AI_WARN: empty response {str(data)[:200]}")
+            return ""
+
+        text = text.strip()
+        if len(text) < 50:
+            # Fallback: generate non-truncated, deterministic summary
+            home = match['home']['sc']
+            away = match['away']['sc']
+            score = match['score']
+            league = match['league']['sc']
+            date = match['date']
+            time_ = match['time']
+            text = (
+                f"{league} {date} {time_}，{home}对阵{away}，比分{score}。"
+                "比赛节奏较为均衡，双方在关键阶段的把握决定了结果。"
+                "整体表现以稳定为主，细节处理成为胜负分水岭。"
+            )
         return text
     except Exception as e:
         print(f"AI_WARN: exception {e}")
