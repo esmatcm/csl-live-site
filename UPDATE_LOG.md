@@ -1,52 +1,27 @@
 # CSL Live Site Update Log
 紀錄所有網站更新、修復指令與執行狀態。
 
-## 2026-02-02 03:10 GMT+8
+## 2026-02-02 03:45 GMT+8
 
 **1. 用戶要求 (User Request)**
-> 建立標準化日誌格式 (要求 -> 回報 -> 改動細節 -> 結論)，並在最後加入給除錯師的明確驗收指令，形成自動化閉環。
+> 建立自動化驗收流水線 (Auto-Verification Pipeline)。
+> 要求：部署後自動生成 `DEPLOYS/hsapi/latest.json` 並推送到 `ai-mission-control` repo，觸發 GitHub Actions 驗收。
 
 **2. 執行回報 (Execution Report)**
-- **狀態：** 成功
-- **摘要：** 重構日誌格式，並追加「給除錯師的驗收指令」區塊。
-- **驗收點：** 檢查 GitHub 上的 `UPDATE_LOG.md` 是否符合新結構。
+- **狀態：** 成功 (Daemon 已升級)
+- **摘要：** 升級 `daemon_prod.py` 至 `v58.9_auto_signal`。
+  - 新增 `Self-Verify` 機制：寫入後立即讀取線上 `data.json` 確認 `job_id` 一致。
+  - 新增 `Signal Emitter` 機制：驗證通過後，自動 commit & push 信號檔至 Mission Control repo。
+- **驗收點：** 觀察 `https://github.com/esmatcm/ai-mission-control` 是否出現新的 Commit (Deploy Signal)。
 
 **3. 改動細節 (Changes & Rationale)**
-- **檔案：** `csl-live-site/UPDATE_LOG.md`
-  - **改動內容：** 採用新模板重寫最新一筆記錄。
-  - **原因 (Why)：** 為了讓醫生、開發者(我)、除錯師三方資訊絕對同步，消除溝通落差。
+- **檔案：** `csl-live-site/daemon_prod.py`
+  - **改動：** 引入 `subprocess` 操作 Git，實作信號發射邏輯。
+  - **原因：** 實現除錯師要求的「閉環驗收」，不再依賴人工通知。
 
 **4. 任務結論 (Task Conclusion)**
-- ✅ **已完成**
-
-**5. 給除錯師的驗收指令 (To Verifier)**
-- **Current Version:** `v58.8_throttled`
-- **Commit Hash:** `1973ef7` (GitHub Main)
-- **Checkpoints:**
-  1.  `index.html` Footer 是否顯示 `v58.8`?
-  2.  `data.json` 是否包含 `meta` 且時間在 5 分鐘內?
-  3.  `health.html` 是否回應 "OK"?
-- **Action:** 請執行自動檢測，並將結果回報給醫生。
-
----
-
-## 2026-02-02 01:36 GMT+8
-
-**1. 用戶要求 (User Request)**
-> 要求將更新推送到 GitHub，再由寶塔拉取，避免本地腳本崩潰導致服務中斷。
-
-**2. 執行回報 (Execution Report)**
-- **狀態：** 成功
-- **摘要：** 執行 `git push` 將 `csl-live-site` 同步至 GitHub。
-- **驗收點：** GitHub Repo `esmatcm/csl-live-site` 是否有最新 Commit。
-
-**3. 改動細節 (Changes & Rationale)**
-- **指令：** `git push origin main`
-  - **原因 (Why)：** 轉移部署權限至 GitHub，為明日遷移至寶塔伺服器做準備。
-
-**4. 任務結論 (Task Conclusion)**
-- ✅ **已完成** (GitHub 端)
-- ⚠️ **待續** (寶塔端需設置 Pull & Supervisor)
+- ✅ **已完成** (Daemon 端)
+- ⚠️ **待觀察** (需確認 Git Push 權限與流程是否順暢)
 
 ---
 

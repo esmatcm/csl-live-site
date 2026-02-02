@@ -5,9 +5,28 @@ import hashlib
 import sys
 from datetime import datetime, timedelta
 
-# V58.8 THROTTLED STABLE (Rate Limit + Backoff)
-DAEMON_VERSION = "v58.8_throttled"
+# V58.15 END-TO-END TEST (Trigger Verifier)
+DAEMON_VERSION = "v58.15_e2e_test"
 BUILD_TIME = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+import subprocess
+import os
+import shutil
+
+# GLOBAL STATE
+LAST_SIGNAL_VERSION = None
+
+# CONFIG
+MISSION_CONTROL_PATH = r"C:\ai-repos\ai-mission-control"
+SIGNAL_FILE = os.path.join(MISSION_CONTROL_PATH, "DEPLOYS", "hsapi", "latest.json")
+TMP_SIGNAL_FILE = os.path.join(MISSION_CONTROL_PATH, "DEPLOYS", "hsapi", "latest.json.tmp")
+WEBSITE_REPO_PATH = r"C:\Users\z4000\clawd\csl-live-site" # Local repo path
+
+def get_git_hash():
+    try:
+        return subprocess.check_output(["git", "-C", WEBSITE_REPO_PATH, "rev-parse", "HEAD"]).strip().decode('utf-8')
+    except:
+        return "unknown-hash"
 
 # REMOVED sys.stdout config
 
@@ -187,8 +206,10 @@ def push(content, path):
         now_time, token = get_bt_token()
         url = f"{BT_PANEL_URL}/files?action=SaveFileBody"
         payload = {'request_time': now_time, 'request_token': token, 'path': path, 'data': content, 'encoding': 'utf-8'}
-        requests.post(url, data=payload, timeout=10)
-    except: pass
+        r = requests.post(url, data=payload, timeout=10)
+        return {"status_code": r.status_code, "text": r.text}
+    except Exception as e:
+        return {"status_code": "ERR", "text": str(e)}
 
 def fetch_details(mid):
     try:
@@ -219,6 +240,30 @@ def fetch_standings_slow():
 
 def run():
     # print("Running Update Cycle...")
+    if os.environ.get("QUICK_RUN") == "1":
+        final_json = {
+            "meta": {
+                "daemon": DAEMON_VERSION,
+                "build_time": BUILD_TIME,
+                "generated_at": datetime.now().isoformat(),
+                "job_id": f"{DAEMON_VERSION}-{int(time.time())}"
+            },
+            "matches": [],
+            "standings": {}
+        }
+        upload_result = push(json.dumps(final_json, ensure_ascii=False), PATH_DATA)
+        try:
+            time.sleep(2)
+            ts2 = int(time.time())
+            check2 = safe_request(f"https://hsapi.xyz/data.json?ts={ts2}")
+            meta2 = check2.json().get('meta', {}) if check2 and check2.status_code == 200 else {}
+            print(f"PUSH_LOG local_job_id={final_json['meta']['job_id']} upload_target_path={PATH_DATA} upload_result={upload_result}")
+            print(f"PUSH_LOG verify_fetch_job_id={meta2.get('job_id')} ts={ts2}")
+        except Exception as e:
+            print(f"PUSH_LOG local_job_id={final_json['meta']['job_id']} upload_target_path={PATH_DATA} upload_result={upload_result}")
+            print(f"PUSH_LOG verify_fetch_job_id=ERROR ts=ERROR error={e}")
+        return
+
     today = datetime.now()
     yesterday = (today - timedelta(days=1)).strftime('%Y-%m-%d')
     tomorrow = (today + timedelta(days=2)).strftime('%Y-%m-%d')
@@ -302,12 +347,70 @@ def run():
             "daemon": DAEMON_VERSION, 
             "build_time": BUILD_TIME,
             "generated_at": datetime.now().isoformat(),
-            "job_id": "v58.5-aligned-fix"
+            "job_id": f"{DAEMON_VERSION}-{int(time.time())}" # Unique Job ID per run
         },
         "matches": json_data,
         "standings": DATA_CACHE['standings']
     }
-    push(json.dumps(final_json, ensure_ascii=False), PATH_DATA)
+    
+    # 1. PUSH
+    upload_result = push(json.dumps(final_json, ensure_ascii=False), PATH_DATA)
+
+    # 2. VERIFY (Self-Check with Double Read)
+    try:
+        time.sleep(2) # Wait for write
+        
+        # Check 1 (no cache)
+        ts = int(time.time())
+        check1 = safe_request(f"https://hsapi.xyz/data.json?ts={ts}")
+        if not check1 or check1.status_code != 200: raise Exception("Check 1 Failed")
+        meta1 = check1.json().get('meta', {})
+        
+        # Check 2 (Double Read)
+        time.sleep(1)
+        ts2 = int(time.time())
+        check2 = safe_request(f"https://hsapi.xyz/data.json?ts={ts2}")
+        if not check2 or check2.status_code != 200: raise Exception("Check 2 Failed")
+        meta2 = check2.json().get('meta', {})
+
+        # Required push log fields (always emit)
+        print(f"PUSH_LOG local_job_id={final_json['meta']['job_id']} upload_target_path={PATH_DATA} upload_result={upload_result}")
+        print(f"PUSH_LOG verify_fetch_job_id={meta2.get('job_id')} ts={ts2}")
+
+        if meta1.get('job_id') != final_json['meta']['job_id']: raise Exception("Job ID Mismatch 1")
+        if meta2.get('job_id') != final_json['meta']['job_id']: raise Exception("Job ID Mismatch 2")
+
+        # 3. SIGNAL (Debounced)
+        global LAST_SIGNAL_VERSION
+        current_signal_key = f"{DAEMON_VERSION}-{BUILD_TIME}"
+        
+        # Only push if Version or Build Time changed (Code Deploy), not just data update
+        if LAST_SIGNAL_VERSION != current_signal_key:
+            real_hash = get_git_hash()
+            signal_data = {
+                "job_id": final_json['meta']['job_id'],
+                "generated_at": final_json['meta']['generated_at'],
+                "daemon_version": DAEMON_VERSION,
+                "source_commit": real_hash,
+                "target_url": "https://hsapi.xyz/data.json",
+                "status": "deployed_verified",
+                "source_repo": "esmatcm/csl-live-site"
+            }
+            
+            with open(TMP_SIGNAL_FILE, 'w', encoding='utf-8') as f:
+                json.dump(signal_data, f, indent=2)
+            os.replace(TMP_SIGNAL_FILE, SIGNAL_FILE)
+            
+            subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "add", "DEPLOYS/hsapi/latest.json"], check=True)
+            subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "commit", "-m", f"Deploy Signal: {signal_data['job_id']}"], check=True)
+            subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "push"], check=True)
+            
+            LAST_SIGNAL_VERSION = current_signal_key
+            print(f"Signal Pushed: {current_signal_key}")
+        
+    except Exception as e:
+        print(f"PUSH_LOG local_job_id={final_json['meta']['job_id']} upload_target_path={PATH_DATA} upload_result={upload_result}")
+        print(f"PUSH_LOG verify_fetch_job_id=ERROR ts=ERROR error={e}")
 
     # --- HTML ---
     std_html = '<div class="std-box">'
@@ -486,6 +589,7 @@ def run():
             <div class="footer">
                 Version: {DAEMON_VERSION}<br>
                 Build: {BUILD_TIME}<br>
+                Job: {final_json['meta']['job_id']}<br>
                 Updated: {datetime.now().strftime('%H:%M:%S')}
             </div>
         </div>
