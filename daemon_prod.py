@@ -239,8 +239,9 @@ def generate_ai_summary(match):
             print(f"AI_INFO: endpoint={GEMINI_ENDPOINT}")
 
         prompt = (
-            "请用简体中文写约100字的赛后分析，分2-3行，每行不超过40字。"
-            "要求：说明结果形成的可能原因，语气专业克制，不编造不存在的数据。"
+            "请用简体中文写约80-120字的赛后分析，可分2-3行。"
+            "要求：说明结果形成的可能原因，语气专业克制，不编造不存在的数据；"
+            "不得省略或截断比分与队名（保持完整，如 2-1）。"
             f"比赛：{match['home']['sc']} vs {match['away']['sc']}，比分 {match['score']}，"
             f"联赛 {match['league']['sc']}，时间 {match['date']} {match['time']}。"
         )
