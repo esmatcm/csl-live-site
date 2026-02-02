@@ -36,7 +36,7 @@ HEADERS = {'X-Auth-Token': API_KEY}
 
 # AI CONFIG (Gemini)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
 
 # --- THROTTLING CONFIG ---
 REQUEST_INTERVAL = 2.0  # Seconds between requests
