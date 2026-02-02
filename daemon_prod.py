@@ -403,7 +403,17 @@ def run():
             
             subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "add", "DEPLOYS/hsapi/latest.json"], check=True)
             subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "commit", "-m", f"Deploy Signal: {signal_data['job_id']}"], check=True)
-            subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "push"], check=True)
+
+            # Pre-push sync to avoid non-fast-forward
+            subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "fetch", "origin"], check=True)
+            subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "pull", "--rebase", "--autostash", "origin", "main"], check=True)
+
+            # Log HEAD vs origin/main
+            head_short = subprocess.check_output(["git", "-C", MISSION_CONTROL_PATH, "rev-parse", "--short", "HEAD"]).strip().decode("utf-8")
+            origin_short = subprocess.check_output(["git", "-C", MISSION_CONTROL_PATH, "rev-parse", "--short", "origin/main"]).strip().decode("utf-8")
+            print(f"PUSH_LOG git_head={head_short} git_origin_main={origin_short}")
+
+            subprocess.run(["git", "-C", MISSION_CONTROL_PATH, "push", "origin", "main"], check=True)
             
             LAST_SIGNAL_VERSION = current_signal_key
             print(f"Signal Pushed: {current_signal_key}")
