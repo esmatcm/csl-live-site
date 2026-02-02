@@ -34,6 +34,10 @@ API_KEY = '735d0b4e485a431db7867a42b0dda855'
 BASE_URL = "https://api.football-data.org/v4"
 HEADERS = {'X-Auth-Token': API_KEY}
 
+# AI CONFIG (Gemini)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
 # --- THROTTLING CONFIG ---
 REQUEST_INTERVAL = 2.0  # Seconds between requests
 MAX_RETRIES = 5
@@ -201,6 +205,33 @@ def get_bt_token():
     token = hashlib.md5(token_str.encode('utf-8')).hexdigest()
     return now_time, token
 
+
+def generate_ai_summary(match):
+    if not GEMINI_API_KEY:
+        return ""
+    try:
+        prompt = (
+            "请用简体中文写约100字的赛后分析，分2-3行，每行不超过40字。"
+            "要求：说明结果形成的可能原因，语气专业克制，不编造不存在的数据。"
+            f"比赛：{match['home']['sc']} vs {match['away']['sc']}，比分 {match['score']}，"
+            f"联赛 {match['league']['sc']}，时间 {match['date']} {match['time']}。"
+        )
+        body = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 220}
+        }
+        r = requests.post(
+            f"{GEMINI_ENDPOINT}?key={GEMINI_API_KEY}",
+            json=body,
+            timeout=15
+        )
+        if r.status_code != 200:
+            return ""
+        data = r.json()
+        return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+    except Exception:
+        return ""
+
 def push(content, path):
     try:
         now_time, token = get_bt_token()
@@ -342,6 +373,12 @@ def run():
     up_list.sort(key=lambda x: x['time'])
     fin_list.sort(key=lambda x: x['time'], reverse=True) 
 
+    # AI summaries for finished matches (top 10)
+    for m in fin_list[:10]:
+        summary = generate_ai_summary(m)
+        if summary:
+            m["ai"] = {"en": summary, "tc": summary, "sc": summary}
+
     final_json = {
         "meta": {
             "daemon": DAEMON_VERSION, 
@@ -460,6 +497,10 @@ def run():
         for m in lst:
             cls = 'live' if is_live else ''
             st_cls = 'fin' if is_fin else ('live' if is_live else '')
+            ai_html = ''
+            if is_fin and m.get('ai'):
+                ai = m['ai']
+                ai_html = f'''<div class="ai-note"><div class="ai-label">AI分析</div><div class="ai-text"><span class="lang" data-en="{ai['en']}" data-tc="{ai['tc']}" data-sc="{ai['sc']}">{ai['sc']}</span></div></div>'''
             h += f'''
             <div class="card {cls}" data-lg="{m['code']}" onclick="openModal('{m['id']}')">
                 <div class="head">
@@ -476,6 +517,7 @@ def run():
                     <span style="font-size:10px; opacity:0.5; margin-left:5px">北京時間</span>
                     <span style="font-size:10px; opacity:0.5; margin-left:auto">{m['date']}</span>
                 </div>
+                {ai_html}
             </div>'''
         return h
 
@@ -543,6 +585,10 @@ def run():
             .sub-info {{ display:flex; align-items:center; gap:8px; margin-top:10px; border-top:1px solid var(--border); padding-top:8px; }}
             .badge {{ background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:11px; color:var(--dim); }}
             
+            .ai-note {{ margin-top:10px; padding:8px 10px; background:#121826; border:1px solid var(--border); border-radius:10px; }}
+            .ai-label {{ font-size:11px; color:var(--acc); margin-bottom:4px; }}
+            .ai-text {{ font-size:12px; line-height:1.45; color:var(--text); white-space:pre-line; }}
+
             .no-data {{ text-align:center; padding:40px; color:var(--dim); font-size:14px; }}
             
             /* Standings */
