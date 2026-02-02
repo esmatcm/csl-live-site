@@ -36,7 +36,8 @@ HEADERS = {'X-Auth-Token': API_KEY}
 
 # AI CONFIG (Gemini)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
+GEMINI_ENDPOINT = None
+GEMINI_MODEL_FALLBACK = "gemini-1.0-pro"
 
 # --- THROTTLING CONFIG ---
 REQUEST_INTERVAL = 2.0  # Seconds between requests
@@ -206,11 +207,37 @@ def get_bt_token():
     return now_time, token
 
 
+def get_model_endpoint():
+    # Try list models
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            for m in data.get("models", []):
+                name = m.get("name", "")
+                methods = m.get("supportedGenerationMethods", [])
+                if "generateContent" in methods and "gemini" in name:
+                    return f"https://generativelanguage.googleapis.com/v1beta/{name}:generateContent"
+        else:
+            print(f"AI_WARN: list models status={r.status_code} body={r.text[:200]}")
+    except Exception as e:
+        print(f"AI_WARN: list models error {e}")
+
+    # Fallback
+    return f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_FALLBACK}:generateContent"
+
+
 def generate_ai_summary(match):
+    global GEMINI_ENDPOINT
     if not GEMINI_API_KEY:
         print("AI_WARN: GEMINI_API_KEY missing")
         return ""
     try:
+        if not GEMINI_ENDPOINT:
+            GEMINI_ENDPOINT = get_model_endpoint()
+            print(f"AI_INFO: endpoint={GEMINI_ENDPOINT}")
+
         prompt = (
             "请用简体中文写约100字的赛后分析，分2-3行，每行不超过40字。"
             "要求：说明结果形成的可能原因，语气专业克制，不编造不存在的数据。"
@@ -234,7 +261,8 @@ def generate_ai_summary(match):
         if not text:
             print(f"AI_WARN: empty response {str(data)[:200]}")
         return text
-    except Exception:
+    except Exception as e:
+        print(f"AI_WARN: exception {e}")
         return ""
 
 def push(content, path):
@@ -592,7 +620,7 @@ def run():
             
             .ai-note {{ margin-top:10px; padding:8px 10px; background:#121826; border:1px solid var(--border); border-radius:10px; }}
             .ai-label {{ font-size:11px; color:var(--acc); margin-bottom:4px; }}
-            .ai-text {{ font-size:12px; line-height:1.45; color:var(--text); white-space:pre-line; }}
+            .ai-text {{ font-size:12px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }}
 
             .no-data {{ text-align:center; padding:40px; color:var(--dim); font-size:14px; }}
             
