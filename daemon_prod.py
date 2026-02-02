@@ -230,7 +230,10 @@ def generate_ai_summary(match):
             print(f"AI_WARN: status={r.status_code} body={r.text[:200]}")
             return ""
         data = r.json()
-        return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        if not text:
+            print(f"AI_WARN: empty response {str(data)[:200]}")
+        return text
     except Exception:
         return ""
 
