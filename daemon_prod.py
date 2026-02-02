@@ -239,7 +239,7 @@ def generate_ai_summary(match):
             print(f"AI_INFO: endpoint={GEMINI_ENDPOINT}")
 
         prompt = (
-            "请用简体中文写一段完整的赛后分析（约80-140字）。"
+            "请用简体中文写一段完整的赛后分析（≤500字），可分2-4行。"
             "要求：说明结果形成的可能原因，语气专业克制，不编造不存在的数据；"
             "必须完整包含双方队名与比分（例如 2-1），不得省略或截断。"
             f"比赛：{match['home']['sc']} vs {match['away']['sc']}，比分 {match['score']}，"
@@ -247,7 +247,7 @@ def generate_ai_summary(match):
         )
         body = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 300}
+            "generationConfig": {"temperature": 0.5, "maxOutputTokens": 800}
         }
         r = requests.post(
             f"{GEMINI_ENDPOINT}?key={GEMINI_API_KEY}",
@@ -274,8 +274,8 @@ def generate_ai_summary(match):
             time_ = match['time']
             text = (
                 f"{league} {date} {time_}，{home}对阵{away}，比分{score}。"
-                "比赛节奏较为均衡，双方在关键阶段的把握决定了结果。"
-                "整体表现以稳定为主，细节处理成为胜负分水岭。"
+                "双方整体发挥较为均衡，关键阶段的把握影响了最终比分。"
+                "攻防转换节奏清晰，局部对抗与战术执行是胜负分水岭。"
             )
         return text
     except Exception as e:
@@ -423,8 +423,8 @@ def run():
     up_list.sort(key=lambda x: x['time'])
     fin_list.sort(key=lambda x: x['time'], reverse=True) 
 
-    # AI summaries for finished matches (top 10)
-    for m in fin_list[:10]:
+    # AI summaries for finished matches (all finished)
+    for m in fin_list:
         summary = generate_ai_summary(m)
         if summary:
             m["ai"] = {"en": summary, "tc": summary, "sc": summary}
